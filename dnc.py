@@ -29,6 +29,8 @@ class Controller:
     N = 5
     W = 10
 
+    size_ksi = W*R + 3 * W + 5 * R + 3
+
 
     # Launch the graph
     with tf.Session() as sess:
@@ -103,31 +105,36 @@ class Controller:
 
         # Initializing the variables
         init = tf.global_variables_initializer()
-            step = 1
-            # Keep training until reach max iterations
-            while step * batch_size < training_iters:
-                batch_x, batch_y = mnist.train.next_batch(batch_size)
-                # Reshape data to get 28 seq of 28 elements
-                batch_x = batch_x.reshape((batch_size, n_steps, n_input))
-                # Run optimization op (backprop)
-                sess.run(optimizer, feed_dict={x: batch_x, y: batch_y})
-                if step % display_step == 0:
-                    # Calculate batch accuracy
-                    acc = sess.run(accuracy, feed_dict={x: batch_x, y: batch_y})
-                    # Calculate batch loss
-                    loss = sess.run(cost, feed_dict={x: batch_x, y: batch_y})
-                    print("Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
-                          "{:.6f}".format(loss) + ", Training Accuracy= " + \
-                          "{:.5f}".format(acc))
-                step += 1
-            print("Optimization Finished!")
+        step = 1
+        # Keep training until reach max iterations
+        while step * batch_size < training_iters:
+            batch_x, batch_y = mnist.train.next_batch(batch_size)
+            # Reshape data to get 28 seq of 28 elements
+            batch_x = batch_x.reshape((batch_size, n_steps, n_input))
+            # Run optimization op (backprop)
+            sess.run(optimizer, feed_dict={x: batch_x, y: batch_y})
 
-            # Calculate accuracy for 128 mnist test images
-            test_len = 128
-            test_data = mnist.test.images[:test_len].reshape((-1, n_steps, n_input))
-            test_label = mnist.test.labels[:test_len]
-            print("Testing Accuracy:", \
-                sess.run(accuracy, feed_dict={x: test_data, y: test_label}))
+           
+
+            if step % display_step == 0:
+                # Calculate batch accuracy
+                acc = sess.run(accuracy, feed_dict={x: batch_x, y: batch_y})
+                # Calculate batch loss
+                loss = sess.run(cost, feed_dict={x: batch_x, y: batch_y})
+                print("Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
+                      "{:.6f}".format(loss) + ", Training Accuracy= " + \
+                      "{:.5f}".format(acc))
+            step += 1
+             
+
+        print("Optimization Finished!")
+
+        # Calculate accuracy for 128 mnist test images
+        test_len = 128
+        test_data = mnist.test.images[:test_len].reshape((-1, n_steps, n_input))
+        test_label = mnist.test.labels[:test_len]
+        print("Testing Accuracy:", \
+            sess.run(accuracy, feed_dict={x: test_data, y: test_label}))
 
 
 
