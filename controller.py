@@ -28,8 +28,8 @@ handle 28 sequences of 28 steps for every sample.
 
 # Parameters
 learning_rate = 0.001
-training_iters = 10000
-batch_size = 1#128
+training_iters = 100000
+batch_size = 128
 display_step = 10
 
 # Network Parameters
@@ -46,17 +46,17 @@ size_ksi = W*R + 3 * W + 5 * R + 3
 
 
 # tf Graph input
-x = tf.placeholder("float", [1, n_steps, n_input])
-y = tf.placeholder("float", [1, n_classes])
+x = tf.placeholder("float", [None, n_steps, n_input])
+y = tf.placeholder("float", [None, n_classes])
 
-mem = memory.Memory(n_classes + size_ksi+ 1, n_classes)
+mem = memory.Memory(n_classes + size_ksi, n_classes,batch_size=batch_size)
 # Define weights
 weights = {
-    'out': tf.Variable(tf.random_normal([n_hidden, n_classes + size_ksi + 1]))
+    'out': tf.Variable(tf.random_normal([n_hidden, n_classes + size_ksi]))
     # 'after_lstm_out': tf.Variable(tf.random_normal([n_classes, n_classes]))
 }
 biases = {
-    'out': tf.Variable(tf.random_normal([n_classes + size_ksi+ 1]))
+    'out': tf.Variable(tf.random_normal([n_classes + size_ksi]))
 }
 
 
@@ -85,25 +85,28 @@ def RNN(x, weights, biases):
 
 pred = RNN(x, weights, biases)
 
+pred = tf.expand_dims(pred,1)
+
+print("pred ", pred.get_shape())
+
+nn_out_w = tf.Variable(tf.truncated_normal([batch_size, n_classes + size_ksi,n_classes],stddev=0.1))
+nn_out_b = tf.Variable(tf.fill([batch_size, 1,n_classes],0.2))
 
 
+mem_vec = mem.make_request(pred)
+print("mem_vec ", mem_vec.get_shape())
 
-#pred_cl = pred[:,:10]
-#interface = pred[:,11:]
-#interface = tf.squeeze(interface)
+nn_pred = tf.matmul(pred,nn_out_w) + nn_out_b
+print("nn_pred ", nn_pred.get_shape())
 
-#read_keys, read_strengths, key_write, write_srength, erase_vec, write_vec, free_gates, allocation_gate, write_gate, read_modes = utils.transform_interface(interface, N, W, R)
-#mem_vec = mem.read_and_write(read_keys, read_strengths, key_write, write_srength, erase_vec, write_vec, free_gates, allocation_gate, write_gate, read_modes)
+pred = nn_pred + mem_vec
 
-nn_out = tf.Variable(tf.truncated_normal([n_classes + size_ksi + 1,n_classes],stddev=0.1))
+pred = tf.squeeze(pred,[1])
 
-#mem_vec = mem.make_request(pred)
-pred = tf.matmul(pred,nn_out)# + mem_vec
-# print(mem_vec.get_shape())
-# Define loss and optimizer
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
+print("pred after ", pred.get_shape())
 # Evaluate model
 correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
 accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
