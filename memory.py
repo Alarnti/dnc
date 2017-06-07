@@ -3,7 +3,7 @@ import numpy as np
 
 class Memory:
 
-	def __init__(self, nn_size, output_size, batch_size=1, R=1, N=5, W=15):
+	def __init__(self, nn_size, output_size, R, N, W, batch_size=1):
 		with tf.variable_scope('memory'):
 
 			self.batch_size = batch_size
@@ -11,22 +11,22 @@ class Memory:
 			self.R = R
 			self.N = N
 			self.W = W
-			self.M = tf.Variable(tf.fill([self.batch_size, self.N,self.W],1e-6))
-			self.L = tf.Variable(tf.fill([self.batch_size, self.N,self.N],1e-6))
+			self.M = tf.Variable(tf.fill([self.batch_size, self.N,self.W],1e-6),name='memory_matrix')
+			self.L = tf.Variable(tf.fill([self.batch_size, self.N,self.N],1e-6),name='temporal_matrix')
 
-			self.psi = tf.Variable(tf.zeros([1,self.N]))
-			self.u = tf.Variable(tf.zeros([self.batch_size,self.N]))
-			self.free_list = tf.Variable(tf.zeros([1,self.N]))
+			#self.psi = tf.Variable(tf.zeros([1,self.N]),name='psi')
+			self.u = tf.Variable(tf.zeros([self.batch_size,self.N]),name='usage_vec')
+			#self.free_list = tf.Variable(tf.zeros([1,self.N]),name='free_list')
 
-			self.write_weighting = tf.Variable(tf.fill((self.batch_size,self.N),1e-6))
+			self.write_weighting = tf.Variable(tf.fill((self.batch_size,self.N),1e-6),name = 'write_weighting')
 			# self.last_write_weighting = tf.Variable(tf.fill((1,self.N),1e-7))
 
-			self.read_weighting = tf.Variable(tf.fill([self.batch_size,self.R,self.N],1e-6))
+			self.read_weighting = tf.Variable(tf.fill([self.batch_size,self.R,self.N],1e-6), name = 'read_weightings')
 			#self.last_read_weighting = tf.Variable(tf.zeros([self.R, self.N]))
 
-			self.read_vecs = tf.Variable(tf.fill([self.batch_size, self.R,self.W],1e-6))
+			#self.read_vecs = tf.Variable(tf.fill([self.batch_size, self.R,self.W],1e-6), name='read_vecs')
 
-			self.p = tf.Variable(tf.fill((self.batch_size,self.N),1e-6))
+			self.p = tf.Variable(tf.zeros([self.batch_size,self.N]), name='precedence_vec')
 			self.forward = 0
 			self.backward = 0
 
@@ -34,11 +34,11 @@ class Memory:
 
 
 			self.nn_size = nn_size
-			self.interface_weigts = tf.Variable(tf.truncated_normal([self.batch_size,self.nn_size, self.interface_size], stddev=0.1))
+			#self.interface_weigts = tf.Variable(tf.truncated_normal([self.batch_size,self.nn_size, self.interface_size], stddev=0.1), name='interface_weights')
 			self.output_size =  output_size
-			self.output_weights = tf.Variable(tf.truncated_normal([self.batch_size, self.W,self.output_size],stddev=0.1))
-			self.interface_bias = tf.Variable(tf.fill([self.batch_size,1,output_size],0.1))
-			self.interface_vector = tf.truncated_normal([self.batch_size, self.interface_size], stddev=0.1)
+			self.output_weights = tf.Variable(tf.truncated_normal([self.batch_size, self.W,self.output_size],stddev=0.1), name = 'output_weights')
+			#self.interface_bias = tf.Variable(tf.fill([self.batch_size,1,output_size],0.1), name='interface_bias')
+			#self.interface_vector = 0#tf.truncated_normal([self.batch_size, self.interface_size], stddev=0.1)
 
 
 			# maps the indecies from the 2D array of free list per batch to
@@ -56,9 +56,11 @@ class Memory:
 
 	def make_request(self,vec):
 		with tf.variable_scope('memory'):
-			self.interface_vector = tf.matmul(vec,self.interface_weigts)
 
-			print "interface vector shape ", self.interface_vector.get_shape()
+			vec = tf.expand_dims(vec,[0])
+			self.interface_vector = vec#tf.matmul(vec,self.interface_weigts)
+
+			#print "interface vector shape ", self.interface_vector.get_shape()
 
 			self.interface_vector = tf.squeeze(self.interface_vector,[1])
 
@@ -157,9 +159,9 @@ class Memory:
 			self.read_vecs = self.read_and_write(read_keys, read_strengths, write_key, write_strength, erase_vec, write_vec, free_gates, allocation_gate, write_gate, read_modes)
 			self.read_vecs = tf.matmul(self.read_vecs,  self.output_weights)
 			print('read_vecs ', self.read_vecs.get_shape())
-			print('interface bias ', self.interface_bias.get_shape())
+			#print('interface bias ', self.interface_bias.get_shape())
 
-			return self.read_vecs + self.interface_bias
+			return self.read_vecs #+ self.interface_bias
 
 
 	def content_based_addressing(self,k, beta):
@@ -260,16 +262,16 @@ class Memory:
 		
 		c = tf.squeeze(c)
 
-		print 'g_write ', g_write.get_shape()
-		print 'g_allocation ', g_allocation.get_shape()
-		print 'a ', a.get_shape()
-		print 'c ', c.get_shape()
+		#print 'g_write ', g_write.get_shape()
+		#print 'g_allocation ', g_allocation.get_shape()
+		#print 'a ', a.get_shape()
+		#print 'c ', c.get_shape()
 
 
 
-		print "write weighting before ", self.write_weighting.get_shape()
+		#print "write weighting before ", self.write_weighting.get_shape()
 		self.write_weighting = g_write * (g_allocation * a + (1 - g_allocation) * c)
-		print "write weighting after ", self.write_weighting.get_shape()
+		#print "write weighting after ", self.write_weighting.get_shape()
 
 
 	def pairwise_add(self, u, v=None, is_batch=False):
@@ -301,8 +303,8 @@ class Memory:
 
 	    n = u_shape[0] if not is_batch else u_shape[1]
 
-	    print "u_shape ", u_shape
-	    print "n ", n
+	    #print "u_shape ", u_shape
+	    #print "n ", n
 
 	    column_u = tf.reshape(u, (-1, 1) if not is_batch else (-1, n, 1))
 	    U = tf.concat([column_u] * n, 1 if not is_batch else 2)
@@ -321,15 +323,15 @@ class Memory:
 		write_weighting = tf.expand_dims(self.write_weighting, 2)
 		precedence_vector = tf.expand_dims(self.p, 1)
 
-		print "write weighting temporal", write_weighting.get_shape()
-		print "precedence temporal ", precedence_vector.get_shape()
-		print "L before ", self.L.get_shape()
+		#print "write weighting temporal", write_weighting.get_shape()
+		#print "precedence temporal ", precedence_vector.get_shape()
+		#print "L before ", self.L.get_shape()
 
 		reset_factor = 1 - self.pairwise_add(write_weighting, is_batch=True)
 		self.L = reset_factor * self.L + tf.matmul(write_weighting, precedence_vector)
 		self.L = (1 - tf.eye(self.N)) * self.L  # eliminates self-links
 
-		print "L after ", self.L.get_shape()		
+		#print "L after ", self.L.get_shape()		
 
 		# self.L = (1 - nnweight_vec - tf.transpose(nnweight_vec))*self.L + \
 		                # tf.matmul(self.write_weighting, self.p, transpose_b=True)
@@ -349,18 +351,18 @@ class Memory:
 		reset_factor_p = 1 - tf.reduce_sum(self.write_weighting, 1, keep_dims=True)
 		self.p = reset_factor_p * self.p + self.write_weighting
 
-		print "precedence after ", self.p.get_shape()
+		#print "precedence after ", self.p.get_shape()
 
 		# self.p = (1-tf.reduce_sum(self.write_weighting, reduction_indices=0)) * \
 		                         # self.p + self.write_weighting
 
 		# print "forward before ", self.forward.get_shape()
 		self.forward = tf.matmul(self.read_weighting, self.L,) # t-1
-		print "forward after ", self.forward.get_shape()
+		#print "forward after ", self.forward.get_shape()
 
 		# print "backward before ", self.backward.get_shape()
 		self.backward = tf.matmul(self.read_weighting,tf.transpose(self.L,perm=[0, 2, 1])) #t-1
-		print "backward after ", self.backward.get_shape()
+		#print "backward after ", self.backward.get_shape()
 
 
 	def update_read_weighting(self,k_read,beta_r, pi):
@@ -369,9 +371,9 @@ class Memory:
 		# print "update read weighting before", self.read_weighting.get_shape()
 		# self.last_read_weighting = self.read_weighting
 
-		print "backward ", self.backward.get_shape()
-		print "forward ", self.forward.get_shape()
-		print "content ", c.get_shape()
+		#print "backward ", self.backward.get_shape()
+		#print "forward ", self.forward.get_shape()
+		#print "content ", c.get_shape()
 
 
 
@@ -379,18 +381,18 @@ class Memory:
 							tf.expand_dims(pi[:, 1, :], 1)*tf.transpose(c, perm=[0, 2, 1]) \
 							+ tf.expand_dims(pi[:, 2, :], 1)*self.forward
 
-		print "update read weighting after", self.read_weighting.get_shape()
+		#print "update read weighting after", self.read_weighting.get_shape()
 
 	def get_read_vec(self):
-		print "read weighting ", self.read_weighting.get_shape()
-		print "memory ", self.M.get_shape()
+		#print "read weighting ", self.read_weighting.get_shape()
+		#print "memory ", self.M.get_shape()
 		return tf.matmul(self.read_weighting,self.M)
 
 	def update_memory(self,e,v):
 
-		print 'write_weighting ', self.write_weighting.get_shape()
+		#print 'write_weighting ', self.write_weighting.get_shape()
 		
-		self.M_before = self.M
+		#self.M_before = self.M
 		self.M = self.M*(1-tf.matmul(tf.transpose(self.write_weighting), e)) + \
                        tf.matmul(tf.transpose(self.write_weighting), v)
 
@@ -402,18 +404,18 @@ class Memory:
 	def read_and_write(self,read_keys, read_strengths, key_write, write_strength, erase_vec, 
 			write_vec, free_gates, allocation_gate, write_gate, read_modes):
 
-		print "#######"
-		print 'read_keys ', read_keys.get_shape()
-		print 'read_strengths ', read_strengths.get_shape()
-		print 'key_write ', key_write.get_shape()
-		print 'write_strength ', write_strength.get_shape()
-		print 'erase_vec ', erase_vec.get_shape()
-		print 'write_vec ', write_vec.get_shape()
-		print 'free_gates ', free_gates.get_shape()
-		print 'allocation_gate ', allocation_gate.get_shape()
-		print 'write_gate ', write_gate.get_shape()
-		print 'read_modes ', read_modes.get_shape()
-		print "########"
+		#print "#######"
+		#print 'read_keys ', read_keys.get_shape()
+		#print 'read_strengths ', read_strengths.get_shape()
+		#print 'key_write ', key_write.get_shape()
+		#print 'write_strength ', write_strength.get_shape()
+		#print 'erase_vec ', erase_vec.get_shape()
+		#print 'write_vec ', write_vec.get_shape()
+		#print 'free_gates ', free_gates.get_shape()
+		#print 'allocation_gate ', allocation_gate.get_shape()
+		#print 'write_gate ', write_gate.get_shape()
+		#print 'read_modes ', read_modes.get_shape()
+		#print "########"
 
 
 
@@ -426,6 +428,3 @@ class Memory:
 		self.update_read_weighting(read_keys, read_strengths, read_modes)
 
 		return self.get_read_vec()
-
-
-		
