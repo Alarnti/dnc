@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 from tensorflow.contrib import rnn
-
+from tensorflow.python import debug as tf_debug
 import utils
 import memory
 
@@ -28,7 +28,7 @@ handle 28 sequences of 28 steps for every sample.
 
 # Parameters
 learning_rate = 0.001
-training_iters = 100000
+training_iters = 1000000
 batch_size = 128
 display_step = 10
 
@@ -49,14 +49,14 @@ size_ksi = W*R + 3 * W + 5 * R + 3
 x = tf.placeholder("float", [None, n_steps, n_input])
 y = tf.placeholder("float", [None, n_classes])
 
-mem = memory.Memory(n_classes + size_ksi, n_classes,batch_size=batch_size)
+mem = memory.Memory(n_classes + size_ksi, n_classes,R=R,W=W,N=N,batch_size=batch_size)
 # Define weights
 weights = {
-    'out': tf.Variable(tf.random_normal([n_hidden, n_classes + size_ksi]))
+    'out': tf.Variable(tf.random_normal([ n_hidden, n_classes + size_ksi]),'after_rnn_weights')
     # 'after_lstm_out': tf.Variable(tf.random_normal([n_classes, n_classes]))
 }
 biases = {
-    'out': tf.Variable(tf.random_normal([n_classes + size_ksi]))
+    'out': tf.Variable(tf.random_normal([ n_classes + size_ksi]), 'after_rnn_bias')
 }
 
 
@@ -92,26 +92,30 @@ print("pred ", pred.get_shape())
 nn_out_w = tf.Variable(tf.truncated_normal([batch_size, n_classes + size_ksi,n_classes],stddev=0.1))
 nn_out_b = tf.Variable(tf.fill([batch_size, 1,n_classes],0.2))
 
+# pred = tf.expand_dims(pred,[1])
+# print("mem_vec before ", pred.get_shape())
+# mem_vec = mem.make_request(pred)#tf.map_fn(lambda x: mem.make_request(x), pred,back_prop=True)#
+# print("mem_vec ", mem_vec.get_shape())
 
-mem_vec = mem.make_request(pred)
-print("mem_vec ", mem_vec.get_shape())
-
+# pred = tf.squeeze(pred,[1])
 nn_pred = tf.matmul(pred,nn_out_w) + nn_out_b
 print("nn_pred ", nn_pred.get_shape())
 
-pred = nn_pred + mem_vec
+pred = nn_pred #+ mem_vec
 
-pred = tf.squeeze(pred,[1])
+# pred = tf.squeeze(pred,[1])
 
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
 print("pred after ", pred.get_shape())
+pred = tf.squeeze(pred,[1])
 # Evaluate model
 correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
 accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
 tf.summary.scalar('cost',cost)
+tf.summary.scalar('accuracy',accuracy)
 
 merged = tf.summary.merge_all()
 
@@ -120,6 +124,7 @@ init = tf.global_variables_initializer()
 
 # Launch the graph
 with tf.Session() as sess:
+    #sess = tf_debug.LocalCLIDebugWrapperSession(sess)
     sess.run(init)
     writer = tf.summary.FileWriter(LOGDIR + 'contr')
     writer.add_graph(sess.graph)
