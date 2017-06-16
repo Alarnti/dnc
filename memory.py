@@ -43,7 +43,7 @@ class Memory:
 		with tf.variable_scope('memory'):
 
 			vec = tf.expand_dims(vec,[0])
-			self.interface_vector = vec
+			self.interface_vector = tf.matmul(vec,self.interface_weigts)
 			self.interface_vector = tf.squeeze(self.interface_vector,[1])
 
 			#***********************************************************
