@@ -1,3 +1,5 @@
+Программный код
+
 import tensorflow as tf
 import numpy as np
 
@@ -235,7 +237,7 @@ class Memory:
 		self.update_temporal_memory_update()
 
 
-		self.update_temporal_memory_update()
+		#self.update_temporal_memory_update()
 		self.update_read_weighting(read_keys, read_strengths, read_modes)
 
 		return self.get_read_vec()
