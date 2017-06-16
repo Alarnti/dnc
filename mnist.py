@@ -10,14 +10,16 @@ from __future__ import print_function
 
 import tensorflow as tf
 from tensorflow.contrib import rnn
-from tensorflow.python import debug as tf_debug
+import sys
+sys.path.append("../")
+
 import memory
 
 # Import MNIST data
 from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 
-LOGDIR = '/home/albert/Documents/ml/ML/ComputerVision/dnc/logs_controller/'
+LOGDIR = 'logs_controller/'
 
 '''
 To classify images using a recurrent neural network, we consider every image
